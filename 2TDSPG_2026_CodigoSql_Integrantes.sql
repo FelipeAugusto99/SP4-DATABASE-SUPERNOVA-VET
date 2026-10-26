@@ -529,17 +529,20 @@ END pkg_pet_relatorio;
 CREATE OR REPLACE PACKAGE BODY pkg_pet_relatorio AS
 
     PROCEDURE pr_relatorio_peso_tutor_especie IS
+        -- Linhas detalhadas (1 por pet), SEM SUM/GROUP BY: todas as somas
+        -- (combinacao, subtotal e total geral) sao acumuladas no loop.
         CURSOR c_pets IS
-            SELECT t.nm_tutor, p.ds_especie, SUM(p.nr_peso) AS peso_total
+            SELECT t.nm_tutor, p.ds_especie, p.nr_peso
             FROM   ch_pet p
             INNER JOIN ch_tutor t ON p.id_tutor = t.id_tutor
-            GROUP BY t.nm_tutor, p.ds_especie
             ORDER BY t.nm_tutor, p.ds_especie;
 
-        v_tutor_atual ch_tutor.nm_tutor%TYPE;
-        v_subtotal    NUMBER := 0;
-        v_total_geral NUMBER := 0;
-        v_qtd_linhas  NUMBER := 0;
+        v_tutor_atual   ch_tutor.nm_tutor%TYPE;
+        v_especie_atual ch_pet.ds_especie%TYPE;
+        v_soma_combo    NUMBER := 0;   -- soma tutor + especie
+        v_subtotal      NUMBER := 0;   -- soma do tutor
+        v_total_geral   NUMBER := 0;   -- soma geral
+        v_qtd_linhas    NUMBER := 0;
     BEGIN
         DBMS_OUTPUT.PUT_LINE(RPAD('TUTOR', 25) || RPAD('ESPECIE', 12) || 'PESO');
         DBMS_OUTPUT.PUT_LINE(RPAD('-', 25, '-') || RPAD('-', 12, '-') || '-------');
@@ -547,22 +550,34 @@ CREATE OR REPLACE PACKAGE BODY pkg_pet_relatorio AS
         FOR r IN c_pets LOOP
             v_qtd_linhas := v_qtd_linhas + 1;
 
-            IF v_tutor_atual IS NOT NULL AND v_tutor_atual <> r.nm_tutor THEN
-                DBMS_OUTPUT.PUT_LINE(RPAD('Sub Total', 37) || TO_CHAR(v_subtotal, '9999990.00'));
-                v_subtotal := 0;
+            -- mudou a combinacao (tutor ou especie)? fecha a anterior
+            IF v_qtd_linhas > 1
+               AND (r.nm_tutor <> v_tutor_atual OR r.ds_especie <> v_especie_atual) THEN
+                DBMS_OUTPUT.PUT_LINE(RPAD(v_tutor_atual, 25) || RPAD(v_especie_atual, 12) || TO_CHAR(v_soma_combo, '9999990.00'));
+                v_soma_combo := 0;
+
+                -- mudou o tutor? fecha o subtotal dele
+                IF r.nm_tutor <> v_tutor_atual THEN
+                    DBMS_OUTPUT.PUT_LINE(RPAD('Sub Total', 37) || TO_CHAR(v_subtotal, '9999990.00'));
+                    v_subtotal := 0;
+                END IF;
             END IF;
 
-            v_tutor_atual := r.nm_tutor;
-            DBMS_OUTPUT.PUT_LINE(RPAD(r.nm_tutor, 25) || RPAD(r.ds_especie, 12) || TO_CHAR(r.peso_total, '9999990.00'));
+            v_tutor_atual   := r.nm_tutor;
+            v_especie_atual := r.ds_especie;
 
-            v_subtotal    := v_subtotal + r.peso_total;
-            v_total_geral := v_total_geral + r.peso_total;
+            -- acumulo manual das tres somas
+            v_soma_combo  := v_soma_combo  + NVL(r.nr_peso, 0);
+            v_subtotal    := v_subtotal    + NVL(r.nr_peso, 0);
+            v_total_geral := v_total_geral + NVL(r.nr_peso, 0);
         END LOOP;
 
         IF v_qtd_linhas = 0 THEN
             RAISE NO_DATA_FOUND;
         END IF;
 
+        -- fecha a ultima combinacao, o ultimo subtotal e o total geral
+        DBMS_OUTPUT.PUT_LINE(RPAD(v_tutor_atual, 25) || RPAD(v_especie_atual, 12) || TO_CHAR(v_soma_combo, '9999990.00'));
         DBMS_OUTPUT.PUT_LINE(RPAD('Sub Total', 37) || TO_CHAR(v_subtotal, '9999990.00'));
         DBMS_OUTPUT.PUT_LINE(RPAD('Total Geral', 37) || TO_CHAR(v_total_geral, '9999990.00'));
     EXCEPTION
@@ -964,6 +979,18 @@ SELECT pkg_pet_regras.fn_classificar_risco_por_idade(8)    AS risco_idade_8     
 SELECT pkg_pet_regras.fn_classificar_risco_por_idade(NULL) AS teste_idade_nula  FROM dual;
 SELECT pkg_pet_regras.fn_classificar_risco_por_idade(-3)   AS teste_idade_neg   FROM dual;
 SELECT pkg_pet_json.fn_montar_json_pet(NULL, 'Cachorro', 'ALTO', NULL, 'x@x.com') AS teste_param_nulo FROM dual;
+
+-- 6.3b) TRIGGER DE AUDITORIA - testes explicitos de INSERT, UPDATE e DELETE
+--       direto na tabela ch_pet (cada um gera 1 linha em ch_pet_auditoria)
+INSERT INTO ch_pet (nm_pet, ds_especie, ds_raca, nr_idade, nr_peso, ds_sexo, id_tutor)
+VALUES ('Teste Audit', 'Cachorro', 'SRD', 9, 10.0, 'M', 1);                -- INSERT
+UPDATE ch_pet SET nr_peso = 11.5 WHERE nm_pet = 'Teste Audit';              -- UPDATE
+DELETE FROM ch_pet WHERE nm_pet = 'Teste Audit';                            -- DELETE
+COMMIT;
+
+SELECT tp_operacao, nm_usuario, TO_CHAR(dt_operacao,'DD/MM/YYYY HH24:MI:SS') AS dt_operacao,
+       ds_valores_antigos, ds_valores_novos
+FROM   ch_pet_auditoria ORDER BY id_auditoria;
 
 -- 6.4) Procedures do backend (pkg_pet_app): caminho feliz + trigger de auditoria
 DECLARE
