@@ -53,7 +53,9 @@ CREATE TABLE ch_tutor (
     id_tutor    NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     nm_tutor    VARCHAR2(100) NOT NULL,
     ds_email    VARCHAR2(100) NOT NULL UNIQUE,
-    nr_telefone VARCHAR2(20)
+    nr_telefone VARCHAR2(20),
+    ds_senha    VARCHAR2(255),   -- usada pela API Java (login / Spring Security)
+    ds_perfil   VARCHAR2(30)     -- ADMIN, VETERINARIO ou TUTOR (API Java)
 );
 
 CREATE TABLE ch_pet (
@@ -335,7 +337,8 @@ CREATE OR REPLACE PACKAGE BODY pkg_pet_json AS
             RAISE NO_DATA_FOUND;
         END IF;
 
-        DBMS_OUTPUT.PUT_LINE(v_json_array);
+        -- imprime 1 objeto JSON por linha (so muda a exibicao; o JSON continua valido)
+        DBMS_OUTPUT.PUT_LINE(REPLACE(v_json_array, '},{', '},' || CHR(10) || '{'));
     EXCEPTION
         WHEN NO_DATA_FOUND THEN
             DBMS_OUTPUT.PUT_LINE('Nenhum pet/tutor encontrado para montar o JSON.');
