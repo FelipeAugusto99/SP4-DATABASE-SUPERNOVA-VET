@@ -13,7 +13,7 @@ Challenge 2026 – FIAP – Análise e Desenvolvimento de Sistemas (2TDSPG)
 
 ## Aplicação Java (backend)
 A API que chama as procedures usa o mesmo banco Oracle (tabelas `ch_*`).
-**Repositório da API:** <COLE_AQUI_O_LINK_DO_REPOSITORIO_JAVA>
+**Repositório da API:** https://github.com/FelipeAugusto99/SP4-SUPERNOVAVET-API
 Os arquivos que integram a API às procedures estão na pasta `java/` deste repositório.
 
 ## Visão geral
