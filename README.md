@@ -13,7 +13,7 @@ Challenge 2026 – FIAP – Análise e Desenvolvimento de Sistemas (2TDSPG)
 
 ## Aplicação Java (backend)
 A API que chama as procedures usa o mesmo banco Oracle (tabelas `ch_*`).
-**Repositório da API:** https://github.com/FelipeAugusto99/SP4-SUPERNOVAVET-API
+**Repositório da API:** https://github.com/kaique-masc/SUPERNOVAVET_JAVA_ADVANCED
 As classes que chamam as procedures estão no repositório da API: `src/main/java/Novamonitor/repository/PetProcedureRepository.java` e `src/main/java/Novamonitor/controller/PetProcedureController.java` (regra de segurança em `security/SecurityConfig.java`).
 
 ## Visão geral
